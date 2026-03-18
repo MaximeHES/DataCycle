@@ -3,6 +3,9 @@ import subprocess
 import sys
 import os
 
+#Flow to run Python scripts for silver transformation
+#
+#
 
 PYTHON_EXE = sys.executable
 CLEANER_DIR = r"C:\DataCycle\ETL\Orchestrator"
