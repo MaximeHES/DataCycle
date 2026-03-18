@@ -1,70 +1,23 @@
-🚧 Data Cycle Project – Development Branch
-📌 Overview
+# 🚧 Data Cycle Project – Dev Branch
 
-This branch (dev) is the active development environment for the Data Cycle project.
+![Status](https://img.shields.io/badge/status-development-orange)
+![Python](https://img.shields.io/badge/python-3.x-blue)
+![Prefect](https://img.shields.io/badge/orchestration-prefect-6f42c1)
+![Platform](https://img.shields.io/badge/platform-windows-lightgrey)
 
-It contains all experimental features, ongoing improvements, and testing pipelines before promotion to production (main branch).
+---
 
-The goal of this project is to build a complete end-to-end data pipeline, from raw ingestion to analytics and visualization, following a Medallion Architecture (Bronze → Silver → Gold) .
+## 📌 Overview
 
-🏗️ Architecture
+Welcome to the **development branch (`dev`)** of the Data Cycle project.
 
-The project follows a simplified data engineering architecture:
+This branch is where all the magic happens ✨  
+New features, pipeline improvements, and experiments are built and tested here before going to production.
 
-SOURCE (Eversys Share)
-        ↓
-BRONZE (Raw - incremental ingestion)
-        ↓
-SILVER (Cleaned & structured data)
-        ↓
-GOLD (Analytics / BI - future)
-🔹 Bronze Layer (Raw Data)
+> ⚠️ This branch may be unstable. Use `main` for production-ready pipelines.
 
-Incremental ingestion using PowerShell
+---
 
-Source: network share (\\10.130.25.152\Eversys)
+## 🏗️ Architecture
 
-Destination: local VM storage (C:\RawData\Eversys)
-
-No transformation applied
-
-Historical data preserved
-
-🔹 Silver Layer (Transformation)
-
-Data cleaning using Python scripts
-
-Handles:
-
-Data formatting
-
-Deduplication
-
-Error handling
-
-Standardization
-
-🔹 Orchestration
-
-Managed using Prefect
-
-Two main flows:
-
-bronze-ingestion-flow
-
-silver-transformation-flow
-
-⚙️ Development Workflow
-🌱 Branch Strategy
-Branch	Purpose
-main	Production-ready pipelines
-dev	Development & testing
-🔁 Workflow
-
-Develop features in dev
-
-Test pipelines locally and in Prefect
-
-Validate data quality
-
-Merge into main when stable
+We follow a **Medallion Architecture**:
