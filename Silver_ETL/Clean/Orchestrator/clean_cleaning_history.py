@@ -1,0 +1,212 @@
+import re
+from pathlib import Path
+from datetime import datetime
+
+import pandas as pd
+
+# ============================================================
+# CONFIG
+# ============================================================
+
+BRONZE_DIR = Path(r"C:\RawData\Eversys\Cleaning_History")
+SILVER_DIR = Path(r"C:\RawData\Eversys_Cleaned\Cleaning_History")
+
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def extract_file_timestamp(filename: str) -> datetime | None:
+    match = re.match(r"(\d{4}-\d{2}-\d{2})_(\d{2})_(\d{2})_(\d{2})-", filename)
+    if not match:
+        return None
+
+    try:
+        return datetime.strptime(
+            f"{match.group(1)} {match.group(2)}:{match.group(3)}:{match.group(4)}",
+            "%Y-%m-%d %H:%M:%S"
+        )
+    except ValueError:
+        return None
+
+
+def normalize_datetime_series(series: pd.Series) -> pd.Series:
+    s = series.astype(str).str.strip()
+
+    dt_iso = pd.to_datetime(s, errors="coerce", format="%Y-%m-%d %H:%M:%S")
+    dt_eu = pd.to_datetime(s, errors="coerce", format="%d/%m/%Y %H:%M:%S")
+
+    result = dt_iso.copy()
+    result[result.isna()] = dt_eu[result.isna()]
+
+    return result.dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def clean_common_strings(df: pd.DataFrame) -> pd.DataFrame:
+    for col in df.columns:
+        if df[col].dtype == "object":
+            df[col] = df[col].astype(str).str.strip()
+            df[col] = df[col].replace({
+                "": pd.NA,
+                "nan": pd.NA,
+                "None": pd.NA,
+                "NULL": pd.NA,
+                "null": pd.NA
+            })
+    return df
+
+
+def build_output_path(source_file: Path) -> Path:
+    file_ts = extract_file_timestamp(source_file.name)
+    if not file_ts:
+        raise ValueError(f"Cannot extract timestamp from filename: {source_file.name}")
+
+    target_dir = (
+        SILVER_DIR
+        / file_ts.strftime("%Y")
+        / file_ts.strftime("%m")
+        / file_ts.strftime("%d")
+    )
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    return target_dir / f"{source_file.stem}_CLEANED.csv"
+
+
+def add_metadata_columns(df: pd.DataFrame, source_file: Path) -> pd.DataFrame:
+    file_ts = extract_file_timestamp(source_file.name)
+
+    df["source_file"] = source_file.name
+    df["file_timestamp"] = file_ts.strftime("%Y-%m-%d %H:%M:%S") if file_ts else pd.NA
+    df["ingestion_timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    return df
+
+
+def split_semicolon_pair(value):
+    if pd.isna(value):
+        return pd.NA, pd.NA
+
+    value = str(value).strip().strip('"')
+
+    if ";" not in value:
+        return pd.to_numeric(value, errors="coerce"), pd.NA
+
+    parts = value.split(";")
+    if len(parts) >= 2:
+        left = pd.to_numeric(parts[0].strip(), errors="coerce")
+        right = pd.to_numeric(parts[1].strip(), errors="coerce")
+        return left, right
+
+    return pd.NA, pd.NA
+
+
+# ============================================================
+# CLEANING
+# ============================================================
+
+def clean_cleaning_file(file_path: Path) -> pd.DataFrame:
+    df = pd.read_csv(
+        file_path,
+        sep=";",
+        encoding="utf-8-sig",
+        dtype=str,
+        keep_default_na=False,
+        engine="python"
+    )
+
+    # Clean column names
+    df.columns = df.columns.str.replace("\ufeff", "", regex=False).str.strip()
+
+    # Remove quotes around values
+    for col in df.columns:
+        df[col] = df[col].astype(str).str.strip().str.strip('"')
+
+    # Clean strings
+    df = clean_common_strings(df)
+
+    # Validate required columns
+    required_columns = ["machine_id", "timestamp_end"]
+    missing = [col for col in required_columns if col not in df.columns]
+    if missing:
+        raise ValueError(f"Missing required columns: {missing}")
+
+    # Normalize timestamp
+    df["timestamp_end"] = normalize_datetime_series(df["timestamp_end"])
+
+    # Split composite fields like "61;0"
+    composite_fields = [
+        "milk_clean_temp_left",
+        "milk_clean_temp_right",
+        "milk_clean_rpm_left",
+        "milk_clean_rpm_right",
+        "milk_clean_cycles_left",
+        "milk_clean_cycles_right",
+    ]
+
+    for field in composite_fields:
+        if field in df.columns:
+            split_values = df[field].apply(split_semicolon_pair)
+            df[f"{field}_part1"] = split_values.apply(lambda x: x[0])
+            df[f"{field}_part2"] = split_values.apply(lambda x: x[1])
+
+    # Convert numeric columns
+    numeric_columns = [
+        "machine_id",
+        "cleaning_id",
+        "powder_qty",
+        "milk_clean_temp",
+        "milk_clean_time",
+        "detergent_qty",
+        "water_qty",
+        "error_code",
+        "cleaning_status",
+        "cleaning_type",
+        "milk_system",
+    ]
+
+    for col in numeric_columns:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    for col in df.columns:
+        if col.endswith("_part1") or col.endswith("_part2"):
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # Remove exact duplicates
+    df = df.drop_duplicates()
+
+    # Add ETL metadata
+    df = add_metadata_columns(df, file_path)
+
+    return df
+
+
+# ============================================================
+# MAIN
+# ============================================================
+
+def main():
+    files = sorted(BRONZE_DIR.glob("*.dat"))
+    print(f"Found {len(files)} Cleaning_History file(s).")
+
+    for file_path in files:
+        try:
+            output_path = build_output_path(file_path)
+
+            if output_path.exists():
+                print(f"[SKIP] {file_path.name}")
+                continue
+
+            print(f"Processing {file_path.name}...")
+            df_clean = clean_cleaning_file(file_path)
+            df_clean.to_csv(output_path, index=False)
+            print(f"[OK] {output_path}")
+
+        except Exception as e:
+            print(f"[ERROR] {file_path.name} | {e}")
+
+    print("Cleaning_History cleaning finished.")
+
+
+if __name__ == "__main__":
+    main()
