@@ -27,7 +27,7 @@ _machine_key_cache = {}
 # ──────────────────────────────────────────────
 
 def read_silver_files(folder_path: Path) -> pd.DataFrame:
-    """Read all CSV/parquet files in a silver folder into one DataFrame."""
+    """Read all CSV/parquet files in a silver folder and all subfolders into one DataFrame."""
     frames = []
     folder = Path(folder_path)
 
@@ -35,20 +35,33 @@ def read_silver_files(folder_path: Path) -> pd.DataFrame:
         logger.warning(f"Folder not found: {folder}")
         return pd.DataFrame()
 
-    for f in sorted(folder.iterdir()):
-        if f.suffix == ".parquet":
-            frames.append(pd.read_parquet(f))
-        elif f.suffix in (".csv", ".dat", ".txt"):
-            frames.append(pd.read_csv(f, sep=",", encoding="utf-8"))
-        else:
-            logger.debug(f"Skipping unknown file type: {f.name}")
+    files = sorted([f for f in folder.rglob("*") if f.is_file()])
+
+    if not files:
+        logger.warning(f"No files found at all in {folder}")
+        return pd.DataFrame()
+
+    data_files_count = 0
+
+    for f in files:
+        try:
+            if f.suffix.lower() == ".parquet":
+                frames.append(pd.read_parquet(f))
+                data_files_count += 1
+            elif f.suffix.lower() in (".csv", ".dat", ".txt"):
+                frames.append(pd.read_csv(f, sep=",", encoding="utf-8"))
+                data_files_count += 1
+            else:
+                logger.debug(f"Skipping unknown file type: {f}")
+        except Exception as e:
+            logger.error(f"Failed reading file {f}: {e}")
 
     if not frames:
-        logger.warning(f"No data files found in {folder}")
+        logger.warning(f"No supported data files found in {folder}")
         return pd.DataFrame()
 
     df = pd.concat(frames, ignore_index=True)
-    logger.info(f"  Read {len(df)} rows from {len(frames)} files in {folder.name}")
+    logger.info(f"  Read {len(df)} rows from {data_files_count} files in {folder}")
     return df
 
 
