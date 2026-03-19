@@ -1,17 +1,14 @@
 import os
 from pathlib import Path
 
-SILVER_ROOT = Path(os.getenv("SILVER_ROOT", "./silver"))
+SILVER_ROOT = Path(os.getenv("SILVER_ROOT", r"C:\RawData\Eversys_Cleaned"))
 
 PATHS = {
-    "product":  SILVER_ROOT / "product_history",
-    "cleaning": SILVER_ROOT / "cleaning_history",
-    "rinse":    SILVER_ROOT / "rinse_history",
-    "alerts":   SILVER_ROOT / "info_message_history",
+    "product":  SILVER_ROOT / "Product_History",
+    "cleaning": SILVER_ROOT / "Cleaning_History",
+    "rinse":    SILVER_ROOT / "Rinse_History",
+    "alerts":   SILVER_ROOT / "Info_Message_History",
 }
-
-# ─── Dimension value → surrogate key maps ───
-# These match the seed data in your dim tables.
 
 PRODUCT_KEY_MAP = {
     0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 8,
@@ -30,5 +27,4 @@ NOZZLE_STATUS_MAP = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 255: 8}
 
 BATCH_SIZE = 5000
 
-# Columns to drop from all silver files before loading
 SILVER_METADATA_COLS = ["source_file", "file_timestamp", "ingestion_timestamp"]

@@ -82,24 +82,6 @@ def add_metadata_columns(df: pd.DataFrame, source_file: Path) -> pd.DataFrame:
     return df
 
 
-def split_semicolon_pair(value):
-    if pd.isna(value):
-        return pd.NA, pd.NA
-
-    value = str(value).strip().strip('"')
-
-    if ";" not in value:
-        return pd.to_numeric(value, errors="coerce"), pd.NA
-
-    parts = value.split(";")
-    if len(parts) >= 2:
-        left = pd.to_numeric(parts[0].strip(), errors="coerce")
-        right = pd.to_numeric(parts[1].strip(), errors="coerce")
-        return left, right
-
-    return pd.NA, pd.NA
-
-
 # ============================================================
 # CLEANING
 # ============================================================
@@ -133,22 +115,6 @@ def clean_cleaning_file(file_path: Path) -> pd.DataFrame:
     # Normalize timestamp
     df["timestamp_end"] = normalize_datetime_series(df["timestamp_end"])
 
-    # Split composite fields like "61;0"
-    composite_fields = [
-        "milk_clean_temp_left",
-        "milk_clean_temp_right",
-        "milk_clean_rpm_left",
-        "milk_clean_rpm_right",
-        "milk_clean_cycles_left",
-        "milk_clean_cycles_right",
-    ]
-
-    for field in composite_fields:
-        if field in df.columns:
-            split_values = df[field].apply(split_semicolon_pair)
-            df[f"{field}_part1"] = split_values.apply(lambda x: x[0])
-            df[f"{field}_part2"] = split_values.apply(lambda x: x[1])
-
     # Convert numeric columns
     numeric_columns = [
         "machine_id",
@@ -166,10 +132,6 @@ def clean_cleaning_file(file_path: Path) -> pd.DataFrame:
 
     for col in numeric_columns:
         if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    for col in df.columns:
-        if col.endswith("_part1") or col.endswith("_part2"):
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
     # Remove exact duplicates
