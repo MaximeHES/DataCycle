@@ -1,6 +1,6 @@
-# 🚧 Data Cycle Project – Dev Branch
+# 🚀 Data Cycle Project – Production Branch
 
-![Status](https://img.shields.io/badge/status-development-orange)
+![Status](https://img.shields.io/badge/status-production-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.x-blue)
 ![Prefect](https://img.shields.io/badge/orchestration-prefect-6f42c1)
 ![Platform](https://img.shields.io/badge/platform-windows-lightgrey)
@@ -9,28 +9,28 @@
 
 ## 📌 Overview
 
-Welcome to the **development branch (`dev`)** of the Data Cycle project.
+Welcome to the **production branch (`main`)** of the Data Cycle project.
 
-This branch is where all the magic happens ✨  
-New features, pipeline improvements, and experiments are built and tested here before going to production.
+This branch contains the **stable and validated version** of the data pipelines.  
+It is deployed on the **production VM** and used for scheduled data processing.
 
-> ⚠️ This branch may be unstable. Use `main` for production-ready pipelines.
+> ✅ Only tested and approved code is merged here  
+> ⚠️ Do NOT develop directly in this branch
 
 ---
 
 ## 🏗️ Architecture
 
 We follow a **Medallion Architecture**:
-    SOURCE (Eversys Share)
-            ↓
-    🥉 Bronze Layer (Raw Data)
-            ↓
-    🥈 Silver Layer (Cleaned Data)
-            ↓
-    🥇 Gold Layer (Analytics - future)
+SOURCE (Eversys Share)
+↓
+🥉 Bronze Layer (Raw Data)
+↓
+🥈 Silver Layer (Cleaned Data)
+↓
+🥇 Gold Layer (Analytics - future)
 
 
-    
 ---
 
 ## 🥉 Bronze Layer – Raw Ingestion
@@ -38,17 +38,17 @@ We follow a **Medallion Architecture**:
 - 📂 Source: `\\10.130.25.152\Eversys`
 - 💾 Destination: `C:\RawData\Eversys`
 - ⚙️ Tool: PowerShell (`.ps1`)
-- 🔁 Mode: Incremental (only new files)
+- 🔁 Mode: Incremental ingestion
 
-### ✅ Features
-- No data transformation
-- Full history preserved
-- Duplicate-safe ingestion
-- Ready for large volumes
+### ✅ Characteristics
+- No transformation applied
+- Full historical data preserved
+- Watermark-based ingestion
+- Reliable and idempotent
 
 ---
 
-## 🥈 Silver Layer – Data Cleaning
+## 🥈 Silver Layer – Data Transformation
 
 - 🐍 Tool: Python
 - 📦 Scripts:
@@ -58,42 +58,59 @@ We follow a **Medallion Architecture**:
   - `clean_cleaning_history.py`
 
 ### 🧹 Processing Includes
-- Data normalization
-- Error handling
+- Data cleaning and normalization
+- Schema standardization
 - Deduplication
-- Format alignment
+- Error handling and logging
 
 ---
 
 ## 🎯 Orchestration
 
-Handled with **Prefect**
+Managed using **Prefect**
 
-### 🔄 Flows
+### 🔄 Production Flows
 
 | Flow | Description |
 |------|------------|
-| `bronze-ingestion-flow` | Ingest raw data |
-| `silver-transformation-flow` | Clean & transform data |
+| `bronze-ingestion-flow` | Incremental ingestion from source |
+| `silver-transformation-flow` | Data cleaning and structuring |
+
+### ⏱️ Scheduling
+
+- Bronze ingestion: runs periodically (e.g. hourly)
+- Silver transformation: triggered after ingestion
 
 ---
 
-## ⚙️ Development Workflow
-
-### 🌱 Branch Strategy
+## ⚙️ Branch Strategy
 
 | Branch | Purpose |
 |--------|--------|
 | `main` | Production 🚀 |
 | `dev` | Development 🧪 |
 
+### 🔁 Workflow
+
+All development is done in `dev`.  
+Once validated, changes are merged into `main` for production deployment.
+
 ---
 
-### 🔁 Workflow
+## 🖥️ Deployment
+
+### 📍 Environment
+
+- 🖥️ Production VM (Windows Server)
+- 📦 Code pulled from `main` branch
+- ⚙️ Pipelines executed via Prefect + Task Scheduler
+
+---
+
+### 🔁 Deployment Process
 
 ```mermaid
 flowchart LR
-    A[Develop Feature] --> B[Test Locally]
-    B --> C[Run in Prefect]
-    C --> D[Validate Data]
-    D --> E[Merge to main]
+    A[Dev validated] --> B[Merge dev → main]
+    B --> C[VM pulls latest code]
+    C --> D[Production pipelines run]
