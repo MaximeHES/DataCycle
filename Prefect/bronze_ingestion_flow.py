@@ -2,9 +2,6 @@ from prefect import flow, task
 import subprocess
 import os
 
-# Flow to run PowerShell scripts for bronze ingestion
-#
-#
 
 SCRIPTS_DIR = r"C:\DataCycle\Scripts"
 
@@ -34,7 +31,7 @@ def run_powershell(script_name):
 
 @flow(name="bronze-ingestion-flow")
 def bronze_ingestion_flow():
-    run_powershell("eversys_incremental_flat_V6_compat_logs.ps1")
+    run_powershell("eversys_incremental_flat_V8.ps1")
 
 
 if __name__ == "__main__":
