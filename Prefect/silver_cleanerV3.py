@@ -380,7 +380,7 @@ def process_batch(batch_path: Path, dry_run: bool = False) -> dict:
 
         for entry in cat_entries:
             bronze_path = Path(entry["bronze_path"])
-            print(f"  → {bronze_path.name}")
+            print(f"   {bronze_path.name}")
 
             try:
                 silver_path = build_silver_path(bronze_path, cat)
