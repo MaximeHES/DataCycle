@@ -232,10 +232,76 @@ def _derive_milk_machine_type(row: pd.Series) -> str:
             return "MilkMachine"
     return "WithoutMilkMachine"
 
+from datetime import datetime
+
+
+def _parse_dt_exact(val, fmt: str):
+    if val is None:
+        return None
+
+    s = str(val).strip()
+    if s.lower() in ("", "nan", "none", "null", "<na>"):
+        return None
+
+    try:
+        return datetime.strptime(s, fmt)
+    except Exception:
+        return None
+
+
+def _parse_cleaning_timestamp_pair(start_val, end_val):
+    """
+    Cleaning-specific timestamp parser.
+
+    Expected normal format:
+      YYYY-MM-DD HH:MM:SS
+
+    But some rows appear to have end timestamp written as:
+      YYYY-DD-MM HH:MM:SS
+
+    Strategy:
+    - parse both with normal ISO first
+    - if end < start, try alternate format for end
+    - accept alternate end only if it becomes >= start and duration is plausible
+    """
+    start_dt = _parse_dt_exact(start_val, "%Y-%m-%d %H:%M:%S")
+    end_dt = _parse_dt_exact(end_val, "%Y-%m-%d %H:%M:%S")
+
+    if start_dt is None and end_dt is None:
+        return None, None
+
+    # If already consistent, keep as-is
+    if start_dt is not None and end_dt is not None and end_dt >= start_dt:
+        return start_dt, end_dt
+
+    # Try alternate interpretation for end only: YYYY-DD-MM
+    alt_end_dt = _parse_dt_exact(end_val, "%Y-%d-%m %H:%M:%S")
+
+    if start_dt is not None and alt_end_dt is not None:
+        duration_sec = (alt_end_dt - start_dt).total_seconds()
+
+        # Keep only if it makes business sense for a cleaning cycle
+        # Here: 0 sec to 4 hours max
+        if 0 <= duration_sec <= 4 * 3600:
+            return start_dt, alt_end_dt
+
+    # Optional: also try alternate interpretation for start if needed
+    alt_start_dt = _parse_dt_exact(start_val, "%Y-%d-%m %H:%M:%S")
+
+    if alt_start_dt is not None and end_dt is not None:
+        duration_sec = (end_dt - alt_start_dt).total_seconds()
+        if 0 <= duration_sec <= 4 * 3600:
+            return alt_start_dt, end_dt
+
+    # Fallback: return what we got
+    return start_dt, end_dt
+
 
 def _row_to_stage_tuple(conn, row: pd.Series, source_file_path: str, source_row_number: int):
-    ts_start = _dt_cleaning(row.get("timestamp_start"))
-    ts_end = _dt_cleaning(row.get("timestamp_end"))
+    ts_start, ts_end = _parse_cleaning_timestamp_pair(
+        row.get("timestamp_start"),
+        row.get("timestamp_end"),
+    )
     anchor = ts_end or ts_start
     machine_id = _i(row.get("machine_id"))
 
@@ -254,7 +320,9 @@ def _row_to_stage_tuple(conn, row: pd.Series, source_file_path: str, source_row_
 
     duration_sec = None
     if ts_start and ts_end:
-        duration_sec = int((ts_end - ts_start).total_seconds())
+        raw_duration = int((ts_end - ts_start).total_seconds())
+        if 0 <= raw_duration <= 4 * 3600:
+            duration_sec = raw_duration
 
     milk_pump_error_left = _f(row.get("milk_pump_error_left"))
     milk_pump_error_right = _f(row.get("milk_pump_error_right"))
@@ -332,6 +400,7 @@ def _row_to_stage_tuple(conn, row: pd.Series, source_file_path: str, source_row_
         source_row_number,
         source_row_hash,
     )
+
 
 
 def _load_file(conn, csv_path: Path) -> int:
