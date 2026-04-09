@@ -183,6 +183,23 @@ def build_row_hash(record: dict) -> str:
     payload = json.dumps(record, sort_keys=True, default=str, ensure_ascii=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
+# New specific function for the duration calcul issue
+def _dt_cleaning(val):
+
+    if val is None:
+        return None
+
+    s = str(val).strip()
+    if s.lower() in ("", "nan", "none", "null", "<na>"):
+        return None
+
+    try:
+        # FORCE format: DD/MM/YYYY HH:MM:SS
+        ts = pd.to_datetime(s, format="%d/%m/%Y %H:%M:%S", errors="coerce")
+        return None if pd.isna(ts) else ts.to_pydatetime()
+    except Exception:
+        return None
+
 
 def _normalize_for_hash(value):
     if value is None:
@@ -217,8 +234,8 @@ def _derive_milk_machine_type(row: pd.Series) -> str:
 
 
 def _row_to_stage_tuple(conn, row: pd.Series, source_file_path: str, source_row_number: int):
-    ts_start = _dt(row.get("timestamp_start"))
-    ts_end = _dt(row.get("timestamp_end"))
+    ts_start = _dt_cleaning(row.get("timestamp_start"))
+    ts_end = _dt_cleaning(row.get("timestamp_end"))
     anchor = ts_end or ts_start
     machine_id = _i(row.get("machine_id"))
 
