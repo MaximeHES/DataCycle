@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - Dev
+  pull_request:
+    branches:
+      - Production
+
+jobs:
+  validate:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          if (Test-Path requirements.txt) {
+            pip install -r requirements.txt
+          }
+        shell: powershell
+
+      - name: Validate Python syntax
+        run: python -m compileall .
+        shell: powershell
